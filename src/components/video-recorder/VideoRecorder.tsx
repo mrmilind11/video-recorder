@@ -1,10 +1,12 @@
 import {FC, useEffect, useRef, useState} from "react";
 import {clsx} from "clsx";
+import {VideoPlayback} from "../video-playback/VideoPlayback.tsx";
+import {useMediaPermissions} from "../../hooks/useMediaPermissions.ts";
+import {PermissionDenied} from "../permission-denied/PermissionDenied.tsx";
+import {PauseCircleIcon, PlayCircleIcon, StopCircleIcon} from "@heroicons/react/24/solid";
 
 export const VideoRecorder: FC = () => {
 
-    const [hasPermission, setHashPermission] = useState(false);
-    const [stream, setStream] = useState<MediaStream>();
     const [recordingStatus, setRecordingStatus] = useState<'recording' | 'paused' | 'stopped'>('stopped');
 
     const liveStreamVideo = useRef<HTMLVideoElement>(null);
@@ -12,27 +14,11 @@ export const VideoRecorder: FC = () => {
 
     const [recordedVideo, setRecordedVideo] = useState<string>();
 
-    const getCameraStream = async () => {
-        if ('MediaRecorder' in window) {
-            try {
-                return await navigator.mediaDevices.getUserMedia({video: true, audio: true});
-            } catch (e) {
-                console.error(e);
-            }
-        } else {
-            alert("The MediaRecorder API is not supported in your browser.");
-        }
-    }
-
-    const handleStartVideoStream = async () => {
-        const _stream = await getCameraStream();
-        setHashPermission(true);
-        setStream(_stream);
-    }
+    const {mediaStream, permissionDenied, hasMediaPermissions} = useMediaPermissions();
 
     const startVideoRecord = () => {
-        if (stream) {
-            mediaRecorder.current = mediaRecorder.current = new MediaRecorder(stream);
+        if (mediaStream) {
+            mediaRecorder.current = mediaRecorder.current = new MediaRecorder(mediaStream);
             mediaRecorder.current.start();
             setRecordingStatus('recording');
             setRecordedVideo('');
@@ -65,55 +51,62 @@ export const VideoRecorder: FC = () => {
     }
 
     useEffect(() => {
-        if (stream && liveStreamVideo.current) {
-            liveStreamVideo.current.srcObject = stream;
+        if (mediaStream && liveStreamVideo.current) {
+            liveStreamVideo.current.srcObject = mediaStream;
         }
-    }, [stream]);
+    }, [mediaStream]);
 
     return (
-        <div className={'flex flex-col gap-2 items-center'}>
-            <button className={'rounded bg-blue-200 px-2 py-1'} onClick={handleStartVideoStream}>
-                Start Video
-            </button>
-            <video className={clsx('w-96 aspect-video', !hasPermission && 'hidden')} muted autoPlay
-                   ref={liveStreamVideo}/>
+        <div className={'flex flex-col gap-4 items-center'}>
             {
-                hasPermission && !!stream && <div className={'flex items-center gap-2'}>
-                    {
-                        recordingStatus === 'stopped' &&
-                        <button className={'rounded bg-red-200 px-2 py-1'} onClick={startVideoRecord}>
-                            Record
-                        </button>
-                    }
-                    {
-                        recordingStatus === 'paused' &&
-                        <button className={'rounded bg-red-200 px-2 py-1'} onClick={resumeVideoRecord}>
-                            Resume
-                        </button>
-                    }
-                    {
-                        recordingStatus === 'recording' &&
-                        <button className={'rounded bg-red-200 px-2 py-1'} onClick={pauseVideoRecord}>
-                            Pause
-                        </button>
-                    }
-                    {
-                        ['recording', 'paused'].includes(recordingStatus) &&
-                        <button className={'rounded bg-red-200 px-2 py-1'} onClick={stopVideoRecord}>
-                            Stop
-                        </button>
-                    }
-                </div>
+                recordingStatus === 'recording' && <div className={'fixed rounded-full h-5 w-5 top-2 right-2 animate-pulse bg-red-600'}/>
             }
             {
-                !!recordedVideo && <div className={'flex flex-col items-center gap-2'}>
-                    <video className={'w-96 aspect-video'} controls>
-                        <source src={recordedVideo} type={'video/webm'}/>
-                    </video>
-                    <a download={'video.webm'} href={recordedVideo}>
-                        <button className={'rounded bg-blue-200 px-2 py-1'}>Download Video</button>
-                    </a>
+                permissionDenied && <PermissionDenied/>
+            }
+            {
+                <div className={clsx('w-full sm:w-96 h-auto', (!hasMediaPermissions || recordedVideo) && 'hidden')}>
+                    <video className={'h-full w-full'} muted autoPlay
+                           ref={liveStreamVideo}/>
                 </div>
+
+            }
+            {
+                !recordedVideo && hasMediaPermissions && !!mediaStream && <>
+                    <div className={'flex items-center gap-2 fixed bottom-5 sm:static'}>
+                        {
+                            recordingStatus === 'stopped' &&
+                            <button className={'rounded-full bg-red-500 border-4 border-red-800 w-12 aspect-square'}
+                                    onClick={startVideoRecord}>
+                                <span hidden>Record</span>
+                            </button>
+                        }
+                        {
+                            recordingStatus === 'paused' &&
+                            <button title={'resume'} onClick={resumeVideoRecord}>
+                                <PlayCircleIcon className={'w-12 aspect-square text-gray-800'} title={'pause'}/>
+                                <span hidden>Resume</span>
+                            </button>
+                        }
+                        {
+                            recordingStatus === 'recording' &&
+                            <button onClick={pauseVideoRecord}>
+                                <PauseCircleIcon className={'w-12 aspect-square text-gray-800'} title={'pause'}/>
+                                <span hidden>Pause</span>
+                            </button>
+                        }
+                        {
+                            ['recording', 'paused'].includes(recordingStatus) &&
+                            <button title={'resume'} onClick={stopVideoRecord}>
+                                <StopCircleIcon className={'w-12 aspect-square text-red-500'} title={'pause'}/>
+                                <span hidden>Resume</span>
+                            </button>
+                        }
+                    </div>
+                </>
+            }
+            {
+                !!recordedVideo && <VideoPlayback recordedVideo={recordedVideo} recordAgainAction={() => setRecordedVideo('')}/>
             }
         </div>
     )
