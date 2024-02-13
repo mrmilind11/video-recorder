@@ -5,6 +5,8 @@ import {useMediaPermissions} from "../../hooks/useMediaPermissions.ts";
 import {PermissionDenied} from "../permission-denied/PermissionDenied.tsx";
 import {PauseCircleIcon, PlayCircleIcon, StopCircleIcon} from "@heroicons/react/24/solid";
 
+const MAX_RECORD_TIME = 60 * 60 * 1000;
+
 export const VideoRecorder: FC = () => {
 
     const [recordingStatus, setRecordingStatus] = useState<'recording' | 'paused' | 'stopped'>('stopped');
@@ -16,12 +18,18 @@ export const VideoRecorder: FC = () => {
 
     const {mediaStream, permissionDenied, hasMediaPermissions} = useMediaPermissions();
 
+    const recordingTimeoutRef = useRef<any>();
+
     const startVideoRecord = () => {
         if (mediaStream) {
             mediaRecorder.current = mediaRecorder.current = new MediaRecorder(mediaStream);
             mediaRecorder.current.start();
             setRecordingStatus('recording');
             setRecordedVideo('');
+
+            recordingTimeoutRef.current = setTimeout(() => {
+                stopVideoRecord();
+            }, MAX_RECORD_TIME);
         }
     }
 
@@ -40,11 +48,14 @@ export const VideoRecorder: FC = () => {
     }
 
     const stopVideoRecord = () => {
+        clearTimeout(recordingTimeoutRef.current);
         if (mediaRecorder.current) {
             mediaRecorder.current.stop();
             setRecordingStatus('stopped');
             mediaRecorder.current.ondataavailable = (event) => {
                 const blob = new Blob([event.data], {type: 'video/webm'});
+                console.log(event.data);
+                console.log(URL.createObjectURL(blob));
                 setRecordedVideo(URL.createObjectURL(blob))
             }
         }
@@ -59,7 +70,8 @@ export const VideoRecorder: FC = () => {
     return (
         <div className={'flex flex-col gap-4 items-center'}>
             {
-                recordingStatus === 'recording' && <div className={'fixed rounded-full h-5 w-5 top-2 right-2 animate-pulse bg-red-600'}/>
+                recordingStatus === 'recording' &&
+                <div className={'fixed rounded-full h-5 w-5 top-2 right-2 animate-pulse bg-red-600'}/>
             }
             {
                 permissionDenied && <PermissionDenied/>
@@ -106,7 +118,8 @@ export const VideoRecorder: FC = () => {
                 </>
             }
             {
-                !!recordedVideo && <VideoPlayback recordedVideo={recordedVideo} recordAgainAction={() => setRecordedVideo('')}/>
+                !!recordedVideo &&
+                <VideoPlayback recordedVideo={recordedVideo} recordAgainAction={() => setRecordedVideo('')}/>
             }
         </div>
     )
