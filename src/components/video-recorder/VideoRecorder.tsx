@@ -4,6 +4,7 @@ import {VideoPlayback} from "../video-playback/VideoPlayback.tsx";
 import {useMediaPermissions} from "../../hooks/useMediaPermissions.ts";
 import {PermissionDenied} from "../permission-denied/PermissionDenied.tsx";
 import {PauseCircleIcon, PlayCircleIcon, StopCircleIcon} from "@heroicons/react/24/solid";
+import {ActionButton} from "../action-button/ActionButton.tsx";
 
 const MAX_RECORD_TIME = 60 * 60 * 1000;
 
@@ -16,7 +17,7 @@ export const VideoRecorder: FC = () => {
 
     const [recordedVideo, setRecordedVideo] = useState<string>();
 
-    const {mediaStream, permissionDenied, hasMediaPermissions} = useMediaPermissions();
+    const {mediaStream, permissionDenied, hasMediaPermissions, requestMediaPermissions} = useMediaPermissions();
 
     const recordingTimeoutRef = useRef<any>();
 
@@ -74,6 +75,13 @@ export const VideoRecorder: FC = () => {
                 <div className={'fixed rounded-full h-5 w-5 top-2 right-2 animate-pulse bg-red-600'}/>
             }
             {
+                !hasMediaPermissions && !permissionDenied &&
+                <div className={'flex flex-row gap-2 items-center'}>
+                    <ActionButton onClick={() => requestMediaPermissions('video-audio')}>Record Video</ActionButton>
+                    <ActionButton onClick={() => requestMediaPermissions('screen')}>Record Screen</ActionButton>
+                </div>
+            }
+            {
                 permissionDenied && <PermissionDenied/>
             }
             {
@@ -81,7 +89,6 @@ export const VideoRecorder: FC = () => {
                     <video className={'h-full w-full'} muted autoPlay
                            ref={liveStreamVideo}/>
                 </div>
-
             }
             {
                 !recordedVideo && hasMediaPermissions && !!mediaStream && <>

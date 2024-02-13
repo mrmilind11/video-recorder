@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useState} from "react";
 
 export const useMediaPermissions = () => {
 
@@ -6,12 +6,14 @@ export const useMediaPermissions = () => {
     const [permissionDenied, setPermissionDenied] = useState(false);
     const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
-    const requestMediaPermissions = async () => {
+    const requestMediaPermissions = async (mode: 'video-audio' | 'screen') => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
+            const stream = await (mode === 'screen' ? navigator.mediaDevices.getDisplayMedia({
+                video: true,
+            }) : navigator.mediaDevices.getUserMedia({
                 audio: true,
                 video: true,
-            });
+            }));
             setHasMediaPermissions(true);
             setMediaStream(stream);
             return stream;
@@ -20,9 +22,5 @@ export const useMediaPermissions = () => {
         }
     };
 
-
-    useEffect(() => {
-        requestMediaPermissions();
-    }, []);
     return {hasMediaPermissions, permissionDenied, mediaStream, requestMediaPermissions};
 }
